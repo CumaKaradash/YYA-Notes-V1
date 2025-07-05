@@ -1,50 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { PageHeader } from "@/components/page-header"
 import { DataTable } from "@/components/data-table"
 import { FormBuilder } from "@/components/form-builder"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, DollarSign, Calendar, AlertTriangle, CheckCircle } from "lucide-react"
+import { TrendingUp, DollarSign, Calendar, AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
+import { Gider, formatCurrency, parseDate } from "@/lib/csv-parser"
 
-const initialGiderlerData = [
-  {
-    id: 1,
-    tarih: "2024-01-15",
-    kategori: "Ofis Giderleri",
-    aciklama: "Kırtasiye malzemeleri",
-    tutar: "₺450",
-    durum: "Onaylandı",
-  },
-  { id: 2, tarih: "2024-01-14", kategori: "Ulaşım", aciklama: "Taksi ücreti", tutar: "₺85", durum: "Beklemede" },
-  { id: 3, tarih: "2024-01-13", kategori: "Yemek", aciklama: "İş yemeği", tutar: "₺320", durum: "Onaylandı" },
-  {
-    id: 4,
-    tarih: "2024-01-12",
-    kategori: "Teknoloji",
-    aciklama: "Yazılım lisansı",
-    tutar: "₺1200",
-    durum: "Onaylandı",
-  },
-  {
-    id: 5,
-    tarih: "2024-01-11",
-    kategori: "Ofis Giderleri",
-    aciklama: "Temizlik malzemeleri",
-    tutar: "₺180",
-    durum: "Onaylandı",
-  },
-  {
-    id: 6,
-    tarih: "2024-01-10",
-    kategori: "Ulaşım",
-    aciklama: "Benzin",
-    tutar: "₺250",
-    durum: "Beklemede",
-  },
-]
+// CSV verilerini doğrudan import et
+let csvData: Gider[] = []
 
 const columns = [
   { key: "tarih", label: "Tarih", sortable: true },
@@ -75,9 +42,44 @@ const formFields = [
 ]
 
 export default function GiderlerPage() {
-  const [giderlerData, setGiderlerData] = useState(initialGiderlerData)
+  const [giderlerData, setGiderlerData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [editingItem, setEditingItem] = useState(null)
+  const [editingItem, setEditingItem] = useState<any>(null)
+
+  // CSV verilerini yükle
+  useEffect(() => {
+    const loadCSVData = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/csv-data?type=giderler')
+        if (response.ok) {
+          const result = await response.json()
+          csvData = result.data
+          
+          // CSV verilerini DataTable formatına dönüştür
+          const formattedData = csvData.map((item, index) => ({
+            id: index + 1,
+            tarih: item.tarih,
+            kategori: item.giderCesidi,
+            aciklama: item.aciklama,
+            tutar: formatCurrency(item.harcamaTutari),
+            durum: "Onaylandı", // CSV'de durum bilgisi yok, varsayılan olarak onaylandı
+            gider_turu: item.giderTuru,
+            odeme_sekli: item.odemeSekli
+          }))
+          
+          setGiderlerData(formattedData)
+        }
+      } catch (error) {
+        console.error('CSV veri yükleme hatası:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadCSVData()
+  }, [])
 
   const handleAdd = () => {
     setEditingItem(null)
@@ -90,19 +92,19 @@ export default function GiderlerPage() {
   }
 
   const handleDelete = (item: any) => {
-    setGiderlerData((prev) => prev.filter((gider) => gider.id !== item.id))
+    setGiderlerData((prev: any[]) => prev.filter((gider: any) => gider.id !== item.id))
   }
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = (data: Record<string, any>) => {
     if (editingItem) {
       // Düzenleme
-      setGiderlerData((prev) =>
-        prev.map((item) => (item.id === editingItem.id ? { ...data, id: editingItem.id } : item)),
+      setGiderlerData((prev: any[]) =>
+        prev.map((item: any) => (item.id === editingItem.id ? { ...data, id: editingItem.id } : item)),
       )
     } else {
       // Yeni ekleme
-      const newId = Math.max(...giderlerData.map((item) => item.id)) + 1
-      setGiderlerData((prev) => [...prev, { ...data, id: newId }])
+      const newId = Math.max(...giderlerData.map((item: any) => item.id)) + 1
+      setGiderlerData((prev: any[]) => [...prev, { ...data, id: newId }])
     }
     setShowForm(false)
     setEditingItem(null)
@@ -113,7 +115,7 @@ export default function GiderlerPage() {
 
     // İçeri aktarılan verileri formatla ve ID ekle
     const formattedData = importedData.map((item, index) => ({
-      id: Math.max(...giderlerData.map((g) => g.id)) + index + 1,
+      id: Math.max(...giderlerData.map((g: any) => g.id)) + index + 1,
       tarih: item.tarih || item.Tarih || "",
       kategori: item.kategori || item.Kategori || "Diğer",
       aciklama: item.aciklama || item.Açıklama || item.aciklama || "",
@@ -122,31 +124,53 @@ export default function GiderlerPage() {
     }))
 
     // Mevcut verilere ekle
-    setGiderlerData((prev) => [...prev, ...formattedData])
+    setGiderlerData((prev: any[]) => [...prev, ...formattedData])
+  }
+
+  // Loading durumu
+  if (loading) {
+    return (
+      <main className="w-[85%] mx-auto px-4 py-6">
+        <PageHeader title="Giderler" description="Tüm gider kayıtlarını görüntüleyin ve yönetin" />
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Veriler yükleniyor...</span>
+        </div>
+      </main>
+    )
   }
 
   // İstatistik hesaplamaları - güncel data ile
   const toplamGider = giderlerData.reduce(
-    (sum, item) => sum + Number.parseInt(item.tutar.replace("₺", "").replace(",", "")),
+    (sum: number, item: any) => {
+      const tutar = parseFloat(item.tutar.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      return sum + tutar
+    },
     0,
   )
-  const onaylananGiderler = giderlerData.filter((item) => item.durum === "Onaylandı")
-  const bekleyenGiderler = giderlerData.filter((item) => item.durum === "Beklemede")
+  const onaylananGiderler = giderlerData.filter((item: any) => item.durum === "Onaylandı")
+  const bekleyenGiderler = giderlerData.filter((item: any) => item.durum === "Beklemede")
 
   const onaylananTutar = onaylananGiderler.reduce(
-    (sum, item) => sum + Number.parseInt(item.tutar.replace("₺", "").replace(",", "")),
+    (sum: number, item: any) => {
+      const tutar = parseFloat(item.tutar.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      return sum + tutar
+    },
     0,
   )
   const bekleyenTutar = bekleyenGiderler.reduce(
-    (sum, item) => sum + Number.parseInt(item.tutar.replace("₺", "").replace(",", "")),
+    (sum: number, item: any) => {
+      const tutar = parseFloat(item.tutar.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
+      return sum + tutar
+    },
     0,
   )
 
   // Kategori bazında analiz
   const kategoriAnalizi = giderlerData.reduce(
-    (acc, item) => {
+    (acc: Record<string, { toplam: number; adet: number }>, item: any) => {
       const kategori = item.kategori
-      const tutar = Number.parseInt(item.tutar.replace("₺", "").replace(",", ""))
+      const tutar = parseFloat(item.tutar.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0
       if (!acc[kategori]) {
         acc[kategori] = { toplam: 0, adet: 0 }
       }
@@ -174,7 +198,7 @@ export default function GiderlerPage() {
             <DollarSign className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">₺{toplamGider.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-red-600">{formatCurrency(toplamGider.toString())}</div>
             <p className="text-xs text-muted-foreground">
               <TrendingUp className="inline h-3 w-3 mr-1" />
               Bu ay toplam
@@ -188,7 +212,7 @@ export default function GiderlerPage() {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">₺{onaylananTutar.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(onaylananTutar.toString())}</div>
             <p className="text-xs text-muted-foreground">{onaylananGiderler.length} gider onaylandı</p>
           </CardContent>
         </Card>
