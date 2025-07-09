@@ -1,14 +1,12 @@
 "use client"
 
-import React from "react"
-
-import { useState } from "react"
+import React, { useState, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus, Filter, Download, Upload, Edit, Trash2 } from "lucide-react"
-import { useRef } from "react"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer"
 
 interface Column {
   key: string
@@ -34,16 +32,27 @@ export function DataTable({ title, columns, data, onAdd, onEdit, onDelete, onImp
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showFilter, setShowFilter] = useState(false)
+  const [filters, setFilters] = useState<{ [key: string]: string }>({})
 
   // Filtreleme
-  const filteredData = data.filter((item) =>
-    Object.values(item).some((value) => {
-      if (React.isValidElement(value)) {
-        return false // React elementlerini arama dışında bırak
-      }
+  const filteredData = data.filter((item) => {
+    // Arama
+    const matchesSearch = Object.values(item).some((value) => {
+      if (React.isValidElement(value)) return false
       return String(value).toLowerCase().includes(searchTerm.toLowerCase())
-    }),
-  )
+    })
+    // Kolon filtreleri
+    const matchesFilters = Object.entries(filters).every(([key, value]) => {
+      if (!value) return true
+      const cellValue = item[key]
+      if (typeof cellValue === "string" || typeof cellValue === "number") {
+        return String(cellValue).toLowerCase().includes(value.toLowerCase())
+      }
+      return false
+    })
+    return matchesSearch && matchesFilters
+  })
 
   // Sıralama
   const sortedData = [...filteredData].sort((a, b) => {
@@ -184,7 +193,7 @@ export function DataTable({ title, columns, data, onAdd, onEdit, onDelete, onImp
                 className="pl-8 w-64"
               />
             </div>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setShowFilter(true)}>
               <Filter className="h-4 w-4 mr-2" />
               Filtrele
             </Button>
@@ -323,6 +332,31 @@ export function DataTable({ title, columns, data, onAdd, onEdit, onDelete, onImp
           </div>
         )}
       </CardContent>
+      <Drawer open={showFilter} onOpenChange={setShowFilter}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Filtrele</DrawerTitle>
+            <DrawerClose asChild>
+              <Button variant="ghost" className="absolute right-4 top-4" onClick={() => setShowFilter(false)}>
+                Kapat
+              </Button>
+            </DrawerClose>
+          </DrawerHeader>
+          <div className="p-4 space-y-4">
+            {columns.map((col) => (
+              <div key={col.key} className="flex flex-col">
+                <label className="text-sm font-medium mb-1">{col.label}</label>
+                <Input
+                  value={filters[col.key] || ""}
+                  onChange={e => setFilters(f => ({ ...f, [col.key]: e.target.value }))}
+                  placeholder={`${col.label} filtrele`}
+                />
+              </div>
+            ))}
+            <Button className="mt-4" onClick={() => setFilters({})}>Filtreleri Temizle</Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </Card>
   )
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { PageHeader } from "@/components/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -84,13 +85,13 @@ export default function ButceTakibiPage() {
   const kullanımOrani = (toplamHarcanan / toplamButce) * 100
 
   return (
-    <main className="w-[85%] mx-auto px-4 py-6">
+    <main className="w-full max-w-5xl mx-auto px-4 py-6">
       <PageHeader title="Bütçe Takibi" description="Aylık bütçe planlaması ve takip sistemi">
         <Button>Bütçe Planı Düzenle</Button>
       </PageHeader>
 
       {/* Genel Özet */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Toplam Bütçe</CardTitle>
